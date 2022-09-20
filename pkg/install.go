@@ -105,9 +105,19 @@ func EnsurePackageWith(opts EnsurePackageOptions) error {
 		opts.AllowedVersion = makeDefaultVersionConstraint(opts.DefaultVersion)
 	}
 
-	found, err := IsCommandAvailable(cmd, opts.VersionCommand, opts.AllowedVersion)
-	if err != nil {
-		return err
+	var found bool
+	var err error
+
+	if opts.Destination == "" {
+		found, err = IsCommandAvailable(cmd, opts.VersionCommand, opts.AllowedVersion)
+		if err != nil {
+			return err
+		}
+	} else {
+		found, err = IsCommandAvailableInDestination(opts.Destination, cmd, opts.VersionCommand, opts.AllowedVersion)
+		if err != nil {
+			return err
+		}
 	}
 
 	if !found {
@@ -223,6 +233,22 @@ func InstallMage(version string) error {
 	}
 
 	return nil
+}
+
+// IsCommandAvailableInDestination determines if a command can be called based on the destination.
+func IsCommandAvailableInDestination(destination, cmd, versionCmd, versionConstraint string) (bool, error) {
+	cmd = path.Join(destination, cmd)
+
+	d, err := os.Stat(cmd)
+	if err != nil {
+		return false, nil
+	}
+
+	if m := d.Mode(); !m.IsDir() && m&0111 != 0 {
+		return CheckCommandVersion(cmd, versionCmd, versionConstraint)
+	}
+
+	return false, nil
 }
 
 // IsCommandAvailable determines if a command can be called based on the current PATH.
